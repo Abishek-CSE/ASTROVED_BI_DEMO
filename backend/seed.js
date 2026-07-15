@@ -102,6 +102,8 @@ export const seedDatabase = async () => {
     }
 
     // 7. Seed AISettings
+    const defaultPrompt = 'You are AstroVed\'s Lead BI Analyst. Analyze the platform\'s multi-channel metrics (Puja Services, Gemstones, Consultation, Products), traffic acquisition channels (Organic vs Paid), conversion funnel drop-offs (especially Add-to-Cart to Purchase), and operational checkouts (payment gateway success, refund rates, bank latency). Identify key trends, opportunities, and critical anomalies. For every insight, provide a precise explanation of why it occurred and outline exactly 2 concrete, strategic recommendations (e.g., budget reallocations, email campaigns, checkout flow adjustments) to maximize growth or mitigate issues.';
+
     let aiConfig = await AISetting.findOne({});
     if (!aiConfig) {
       await AISetting.create({
@@ -111,13 +113,23 @@ export const seedDatabase = async () => {
         maxTokens: 2048,
         temperature: 0.7,
         enabled: true,
-        prompts: 'Analyze AstroVed dashboard anomalies and draft immediate strategic interventions.'
+        prompts: defaultPrompt
       });
       console.log('Seeded default AI settings.');
-    } else if ((aiConfig.apiKey === '' || aiConfig.apiKey.includes('••••') || aiConfig.apiKey.includes('***')) && process.env.OPENAI_API_KEY) {
-      aiConfig.apiKey = process.env.OPENAI_API_KEY;
-      await aiConfig.save();
-      console.log('Updated database AI API Key with value from .env file.');
+    } else {
+      let updated = false;
+      if ((aiConfig.apiKey === '' || aiConfig.apiKey.includes('••••') || aiConfig.apiKey.includes('***')) && process.env.OPENAI_API_KEY) {
+        aiConfig.apiKey = process.env.OPENAI_API_KEY;
+        updated = true;
+      }
+      if (aiConfig.prompts === 'Analyze AstroVed dashboard anomalies and draft immediate strategic interventions.' || aiConfig.prompts === '') {
+        aiConfig.prompts = defaultPrompt;
+        updated = true;
+      }
+      if (updated) {
+        await aiConfig.save();
+        console.log('Updated database AI settings with values from env and default premium prompt template.');
+      }
     }
 
     // 8. Seed Integrations
