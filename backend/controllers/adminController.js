@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import User from '../models/User.js';
 import RolePermission from '../models/RolePermission.js';
 import KPI from '../models/KPI.js';
@@ -33,7 +30,7 @@ const getModel = (name) => {
 const convertToCSV = (objArray) => {
   if (!objArray || !objArray.length) return '';
   const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
-  
+
   // Get all keys (headers) excluding Mongoose internal fields
   const sample = array[0].toObject ? array[0].toObject() : array[0];
   const headers = Object.keys(sample).filter(k => k !== '_id' && k !== '__v');
@@ -50,7 +47,7 @@ const convertToCSV = (objArray) => {
       } else if (typeof val === 'object') {
         val = JSON.stringify(val);
       }
-      
+
       // Escape quotes and wrap in quotes if commas/quotes/newlines exist
       let valStr = String(val).replace(/"/g, '""');
       if (valStr.includes(',') || valStr.includes('\n') || valStr.includes('"')) {
@@ -67,19 +64,19 @@ const convertToCSV = (objArray) => {
 const parseCSV = (csvText) => {
   const lines = csvText.split(/\r?\n/);
   if (lines.length < 2) return [];
-  
+
   // Parse header line
   const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
   const result = [];
-  
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    
+
     const values = [];
     let insideQuote = false;
     let entry = '';
-    
+
     for (let char of line) {
       if (char === '"') {
         insideQuote = !insideQuote;
@@ -122,13 +119,13 @@ export const exportCollection = async (req, res) => {
     const { collection } = req.params;
     const format = req.query.format || 'csv';
     const Model = getModel(collection);
-    
+
     if (!Model) {
       return res.status(400).json({ message: `Invalid collection: ${collection}` });
     }
 
     const data = await Model.find({});
-    
+
     if (format === 'json') {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Disposition', `attachment; filename=astroved_${collection}.json`);
@@ -193,7 +190,7 @@ export const importCollection = async (req, res) => {
     });
 
     await Promise.all(upsertPromises);
-    
+
     // Log audit trail
     await AuditLog.create({
       user: 'Super Admin',
@@ -403,47 +400,9 @@ export const getAISettings = async (req, res) => {
   }
 };
 
-const updateEnvFile = (key, value) => {
-  try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const envPath = path.resolve(__dirname, '../.env');
-    
-    if (!fs.existsSync(envPath)) return;
-    
-    let envContent = fs.readFileSync(envPath, 'utf8');
-    const lines = envContent.split(/\r?\n/);
-    let keyExists = false;
-    
-    const newLines = lines.map(line => {
-      if (line.trim().startsWith(`${key}=`)) {
-        keyExists = true;
-        return `${key}=${value}`;
-      }
-      return line;
-    });
-    
-    if (!keyExists) {
-      newLines.push(`${key}=${value}`);
-    }
-    
-    fs.writeFileSync(envPath, newLines.join('\n'), 'utf8');
-    console.log(`[Env Sync] Successfully updated ${key} in .env file.`);
-  } catch (error) {
-    console.error(`[Env Sync] Error updating .env file: ${error.message}`);
-  }
-};
-
 export const updateAISettings = async (req, res) => {
   try {
     const settings = await AISetting.findOneAndUpdate({}, req.body, { new: true, upsert: true });
-    
-    // Dynamically update local .env file if key is valid and not masked
-    const { apiKey } = req.body;
-    if (apiKey && apiKey !== '' && !apiKey.includes('••••') && !apiKey.includes('***')) {
-      updateEnvFile('OPENAI_API_KEY', apiKey);
-    }
-    
     res.json(settings);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -460,8 +419,8 @@ export const generateAIInsights = async (req, res) => {
 
     // Validate the API key is not empty and is not the default dummy key
     if (!apiKey || apiKey === '' || apiKey.includes('••••') || apiKey.includes('***')) {
-      return res.status(400).json({ 
-        message: 'No valid OpenAI API Key configured. Please go to AI Settings and add your OpenAI API Key.' 
+      return res.status(400).json({
+        message: 'No valid OpenAI API Key configured. Please go to AI Settings and add your OpenAI API Key.'
       });
     }
 
@@ -542,14 +501,14 @@ You MUST respond with a strict, valid JSON array of objects matching this exact 
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json({ 
+      return res.status(response.status).json({
         message: errorData.error?.message || `OpenAI API returned error ${response.status}`
       });
     }
 
     const data = await response.json();
     let content = data.choices[0].message.content.trim();
-    
+
     // Clean up markdown code block markers if returned by OpenAI
     if (content.startsWith('```')) {
       content = content.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
@@ -560,9 +519,9 @@ You MUST respond with a strict, valid JSON array of objects matching this exact 
       res.json(insights);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response as JSON:', content);
-      res.status(500).json({ 
+      res.status(500).json({
         message: 'OpenAI returned an invalid JSON format. Please try again.',
-        raw: content 
+        raw: content
       });
     }
 
@@ -586,11 +545,11 @@ export const toggleIntegration = async (req, res) => {
     const { id } = req.params;
     const integration = await Integration.findOne({ id });
     if (!integration) return res.status(404).json({ message: 'Integration not found' });
-    
+
     integration.connected = !integration.connected;
     integration.lastSync = integration.connected ? 'Just now' : 'Never';
     await integration.save();
-    
+
     res.json(integration);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -603,12 +562,12 @@ export const updateIntegrationConfig = async (req, res) => {
     const { config } = req.body;
     const integration = await Integration.findOne({ id });
     if (!integration) return res.status(404).json({ message: 'Integration not found' });
-    
+
     integration.config = config;
     integration.connected = true;
     integration.lastSync = 'Just now';
     await integration.save();
-    
+
     res.json(integration);
   } catch (error) {
     res.status(400).json({ message: error.message });

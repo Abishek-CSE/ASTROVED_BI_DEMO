@@ -5,7 +5,7 @@ import { api } from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { 
   Sparkles, TrendingUp, TrendingDown, AlertTriangle, 
-  ArrowRight, Play, Loader2, ShieldAlert, Cpu 
+  ArrowRight, Play, Loader2, ShieldAlert, Cpu, Key, Save 
 } from 'lucide-react';
 
 const AIInsights = ({ setCurrentModule }) => {
@@ -14,11 +14,54 @@ const AIInsights = ({ setCurrentModule }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Load mock insights on initial load or date filter changes
-  useEffect(() => {
+  // Local state for inline API key configuration
+  const [aiSettings, setAiSettings] = useState(null);
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [inputApiKey, setInputApiKey] = useState('');
+  const [isSavingKey, setIsSavingKey] = useState(false);
+
+  // Load mock insights and fetch current AI settings on mount/filters update
+  const loadSettingsAndMockData = async () => {
     setInsights(getAIInsights(startDate, endDate));
     setError('');
+    try {
+      const settings = await api.getAISettings();
+      if (settings) {
+        setAiSettings(settings);
+        setInputApiKey(settings.apiKey || '');
+      }
+    } catch (err) {
+      console.error('Failed to load AI settings:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadSettingsAndMockData();
   }, [startDate, endDate]);
+
+  const handleSaveApiKey = async () => {
+    if (!inputApiKey.trim()) {
+      toast.error('API Key cannot be empty');
+      return;
+    }
+    setIsSavingKey(true);
+    const saveToast = toast.loading('Saving OpenAI API Key...');
+    try {
+      const updatedSettings = {
+        ...aiSettings,
+        apiKey: inputApiKey.trim()
+      };
+      await api.updateAISettings(updatedSettings);
+      setAiSettings(updatedSettings);
+      setShowApiKeyInput(false);
+      setError(''); // Clear previous error
+      toast.success('OpenAI API Key saved successfully!', { id: saveToast });
+    } catch (err) {
+      toast.error(err.message || 'Failed to save API Key', { id: saveToast });
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
 
   const handleGenerateInsights = async () => {
     setIsLoading(true);
@@ -77,28 +120,83 @@ const AIInsights = ({ setCurrentModule }) => {
           </div>
         </div>
 
-        <button
-          onClick={handleGenerateInsights}
-          disabled={isLoading}
-          className="flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 cursor-pointer w-full md:w-auto shrink-0"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="animate-spin w-4 h-4" />
-              <span>Analyzing Dashboard...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4" />
-              <span>Generate Live AI Insights</span>
-            </>
-          )}
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
+          <button
+            onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+            className={`flex items-center justify-center space-x-1.5 px-4 py-3 rounded-2xl border text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer w-full sm:w-auto ${
+              showApiKeyInput 
+                ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 hover:bg-rose-500/20'
+                : 'bg-cosmic-card border-cosmic-border text-cosmic-text hover:bg-cosmic-card-hover'
+            }`}
+          >
+            <Key size={14} />
+            <span>{aiSettings?.apiKey ? 'Change API Key' : 'Configure API Key'}</span>
+          </button>
+
+          <button
+            onClick={handleGenerateInsights}
+            disabled={isLoading}
+            className="flex items-center justify-center space-x-2 px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 cursor-pointer w-full sm:w-auto"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="animate-spin w-4 h-4" />
+                <span>Analyzing Dashboard...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Generate Live AI Insights</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Inline API Key configuration card */}
+      {showApiKeyInput && (
+        <div className="bg-cosmic-card border border-cosmic-border p-5 rounded-2xl space-y-4 bg-gradient-to-r from-indigo-500/5 to-transparent transition-all duration-300 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center space-x-2">
+            <Key className="text-indigo-400 w-4 h-4" />
+            <h4 className="text-xs font-bold text-cosmic-text uppercase tracking-wider">Configure OpenAI API Key</h4>
+          </div>
+          <p className="text-[11px] text-cosmic-muted leading-relaxed">
+            Specify your OpenAI API Key to authenticate live AI insights. This key will be safely stored and synced in your environment settings.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="password"
+              value={inputApiKey}
+              onChange={(e) => setInputApiKey(e.target.value)}
+              placeholder="sk-proj-..."
+              className="flex-1 bg-cosmic-bg border border-cosmic-border text-xs text-cosmic-text px-4 py-2.5 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+            />
+            <div className="flex gap-2 w-full sm:w-auto justify-end">
+              <button
+                onClick={() => {
+                  setShowApiKeyInput(false);
+                  if (aiSettings) setInputApiKey(aiSettings.apiKey || '');
+                }}
+                className="px-4 py-2.5 text-xs font-bold rounded-xl border border-cosmic-border text-cosmic-muted hover:text-cosmic-text transition-colors cursor-pointer w-full sm:w-auto text-center"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveApiKey}
+                disabled={isSavingKey}
+                className="flex items-center justify-center space-x-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50 w-full sm:w-auto text-center"
+              >
+                {isSavingKey ? <Loader2 className="animate-spin w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                <span>Save Key</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Error / API Key Missing Warning Banner */}
       {error && (
-        <div className="bg-rose-500/5 border border-rose-500/15 p-5 rounded-2xl flex gap-4 items-start">
+        <div className="bg-rose-500/5 border border-rose-500/15 p-5 rounded-2xl flex gap-4 items-start animate-in fade-in duration-300">
           <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center shrink-0">
             <ShieldAlert className="w-5 h-5" />
           </div>
@@ -107,15 +205,26 @@ const AIInsights = ({ setCurrentModule }) => {
             <p className="text-xs text-cosmic-muted mt-1.5 leading-relaxed">
               {error}
             </p>
-            {error.toLowerCase().includes('api key') && setCurrentModule && (
-              <button
-                onClick={() => setCurrentModule('ai-settings')}
-                className="mt-3 flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-cosmic-card border border-cosmic-border hover:bg-cosmic-card-hover text-cosmic-text text-[11px] font-bold transition-all cursor-pointer"
-              >
-                <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Go to AI Settings Panel</span>
-                <ArrowRight className="w-3.5 h-3.5 ml-1" />
-              </button>
+            {error.toLowerCase().includes('api key') && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowApiKeyInput(true)}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-all cursor-pointer"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>Configure API Key Here</span>
+                </button>
+                {setCurrentModule && (
+                  <button
+                    onClick={() => setCurrentModule('ai-settings')}
+                    className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-cosmic-card border border-cosmic-border hover:bg-cosmic-card-hover text-cosmic-text text-[11px] font-bold transition-all cursor-pointer"
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Go to AI Settings Panel</span>
+                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
