@@ -340,6 +340,7 @@ const AdminControl = ({ initialTab = 'users' }) => {
     enabled: true,
     prompts: ''
   });
+  const [isEditingApiKey, setIsEditingApiKey] = useState(false);
 
   const loadAISettings = async () => {
     try {
@@ -354,6 +355,8 @@ const AdminControl = ({ initialTab = 'users' }) => {
     try {
       await api.updateAISettings(aiSettings);
       toast.success('Saved Cognitive AI Configurations!');
+      setIsEditingApiKey(false);
+      loadAISettings();
 
       await api.createAuditLog({
         user: 'Super Admin',
@@ -1080,12 +1083,46 @@ const AdminControl = ({ initialTab = 'users' }) => {
                 <div className="space-y-3">
                   <div>
                     <label className="text-[9px] font-bold text-cosmic-muted uppercase block mb-1">OpenAI API Key</label>
-                    <input 
-                      type="password" 
-                      value={aiSettings.apiKey}
-                      onChange={(e) => setAiSettings({ ...aiSettings, apiKey: e.target.value })}
-                      className="w-full bg-cosmic-bg border border-cosmic-border text-xs text-cosmic-text px-3 py-1.5 rounded-lg focus:outline-none"
-                    />
+                    {isEditingApiKey ? (
+                      <div className="flex gap-2">
+                        <input 
+                          type="password" 
+                          value={aiSettings.apiKey}
+                          onChange={(e) => setAiSettings({ ...aiSettings, apiKey: e.target.value })}
+                          className="flex-1 bg-cosmic-bg border border-cosmic-border text-xs text-cosmic-text px-3 py-1.5 rounded-lg focus:outline-none font-mono"
+                          placeholder="sk-proj-..."
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingApiKey(false);
+                            loadAISettings(); // Restore previous loaded key
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg border border-cosmic-border text-[10px] font-bold text-cosmic-muted hover:text-cosmic-text transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between bg-cosmic-bg border border-cosmic-border px-3 py-1.5 rounded-lg">
+                        <span className="text-xs text-cosmic-muted font-mono leading-none tracking-widest pt-1">
+                          {aiSettings.apiKey ? '••••••••••••••••••••••••' : 'No Key Configured'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingApiKey(true);
+                            // Clear dummy visual key if it starts with bullets so user enters a fresh one
+                            if (aiSettings.apiKey.includes('••••') || aiSettings.apiKey.includes('***')) {
+                              setAiSettings({ ...aiSettings, apiKey: '' });
+                            }
+                          }}
+                          className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                        >
+                          Change API Key
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
