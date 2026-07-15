@@ -1095,9 +1095,14 @@ const AdminControl = ({ initialTab = 'users' }) => {
                         onChange={(e) => setAiSettings({ ...aiSettings, model: e.target.value })}
                         className="w-full bg-cosmic-bg border border-cosmic-border text-xs text-cosmic-text px-3 py-1.5 rounded-lg focus:outline-none"
                       >
-                        <option>gpt-4o</option>
-                        <option>gpt-4-turbo</option>
-                        <option>gpt-3.5-turbo</option>
+                        <option value="gpt-4o">gpt-4o (Recommended)</option>
+                        <option value="gpt-4o-mini">gpt-4o-mini (Fast & Cost-Efficient)</option>
+                        <option value="o3-mini">o3-mini (Latest Reasoning)</option>
+                        <option value="o1">o1 (Advanced Reasoning)</option>
+                        <option value="o1-mini">o1-mini (Reasoning Mini)</option>
+                        <option value="gpt-4-turbo">gpt-4-turbo (Legacy High-Perf)</option>
+                        <option value="gpt-4">gpt-4 (Standard legacy)</option>
+                        <option value="gpt-3.5-turbo">gpt-3.5-turbo (Legacy speed)</option>
                       </select>
                     </div>
                     <div>
