@@ -102,10 +102,10 @@ export const seedDatabase = async () => {
     }
 
     // 7. Seed AISettings
-    const aiCount = await AISetting.countDocuments();
-    if (aiCount === 0) {
+    let aiConfig = await AISetting.findOne({});
+    if (!aiConfig) {
       await AISetting.create({
-        apiKey: 'sk-proj-••••••••••••••••••••••••',
+        apiKey: process.env.OPENAI_API_KEY || '',
         model: 'gpt-4o',
         refreshInterval: '6 Hours',
         maxTokens: 2048,
@@ -114,6 +114,10 @@ export const seedDatabase = async () => {
         prompts: 'Analyze AstroVed dashboard anomalies and draft immediate strategic interventions.'
       });
       console.log('Seeded default AI settings.');
+    } else if ((aiConfig.apiKey === '' || aiConfig.apiKey.includes('••••') || aiConfig.apiKey.includes('***')) && process.env.OPENAI_API_KEY) {
+      aiConfig.apiKey = process.env.OPENAI_API_KEY;
+      await aiConfig.save();
+      console.log('Updated database AI API Key with value from .env file.');
     }
 
     // 8. Seed Integrations
