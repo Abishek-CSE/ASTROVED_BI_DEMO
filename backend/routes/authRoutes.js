@@ -8,13 +8,20 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const cleanPassword = password ? password.trim() : '';
+
+    console.log(`[Auth] Login attempt: email="${cleanEmail}"`);
+
     // Find active user by email and password
-    const user = await User.findOne({ email, password });
+    const user = await User.findOne({ email: cleanEmail, password: cleanPassword });
     if (!user) {
+      console.log(`[Auth] Login failed: No matching user found for email="${cleanEmail}"`);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
     
     if (user.status !== 'Active') {
+      console.log(`[Auth] Login failed: User account is inactive for email="${cleanEmail}"`);
       return res.status(403).json({ message: 'Your account is deactivated' });
     }
 

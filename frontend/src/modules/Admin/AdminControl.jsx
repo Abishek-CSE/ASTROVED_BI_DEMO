@@ -5,6 +5,7 @@ import {
   UserCheck, UserX, Save, Play, Check, Database, RefreshCw, Download, Info
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { confirmToast } from '../../components/ConfirmToast';
 import { api } from '../../services/api';
 
 const AdminControl = ({ initialTab = 'users' }) => {
@@ -107,24 +108,28 @@ const AdminControl = ({ initialTab = 'users' }) => {
   };
 
   const handleDeleteUser = async (empId, name) => {
-    if (window.confirm(`Are you sure you want to permanently delete user ${name}?`)) {
-      try {
-        await api.deleteUser(empId);
-        toast.success(`User ${name} deleted successfully`);
-        loadUsers();
+    confirmToast(`Are you sure you want to permanently delete user ${name}? This action cannot be undone.`, {
+      title: 'Delete User Confirmation',
+      confirmText: 'Yes, Delete User',
+      onConfirm: async () => {
+        try {
+          await api.deleteUser(empId);
+          toast.success(`User ${name} deleted successfully`);
+          loadUsers();
 
-        // Log audit
-        await api.createAuditLog({
-          user: 'Super Admin',
-          action: `Permanently deleted user: ${name} (ID: ${empId})`,
-          module: 'User Management',
-          ip: '127.0.0.1',
-          browser: navigator.userAgent
-        });
-      } catch (err) {
-        toast.error('Failed to delete user');
+          // Log audit
+          await api.createAuditLog({
+            user: 'Super Admin',
+            action: `Permanently deleted user: ${name} (ID: ${empId})`,
+            module: 'User Management',
+            ip: '127.0.0.1',
+            browser: navigator.userAgent
+          });
+        } catch (err) {
+          toast.error('Failed to delete user');
+        }
       }
-    }
+    });
   };
 
   // ----------------------------------------------------

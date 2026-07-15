@@ -83,6 +83,9 @@ export const api = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(settings)
   }).then(handleResponse),
+  generateAIInsights: () => fetch('/api/admin/ai/insights', {
+    method: 'POST'
+  }).then(handleResponse),
 
   // Integrations
   getIntegrations: () => fetch('/api/admin/integrations').then(handleResponse),

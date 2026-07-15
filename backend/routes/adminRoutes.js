@@ -20,6 +20,7 @@ import {
   updateNotifications,
   getAISettings,
   updateAISettings,
+  generateAIInsights,
   getIntegrations,
   toggleIntegration,
   updateIntegrationConfig,
@@ -66,6 +67,7 @@ router.post('/notifications', updateNotifications);
 // AI Settings
 router.get('/ai', getAISettings);
 router.post('/ai', updateAISettings);
+router.post('/ai/insights', generateAIInsights);
 
 // Integrations
 router.get('/integrations', getIntegrations);

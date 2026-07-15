@@ -99,7 +99,7 @@ function MainAppContent() {
       case 'ai-insights':
       case 'alerts':
       case 'notifications':
-        return <AIInsights />;
+        return <AIInsights setCurrentModule={setCurrentModule} />;
       case 'reports':
       case 'report-scheduler':
       case 'data-management':

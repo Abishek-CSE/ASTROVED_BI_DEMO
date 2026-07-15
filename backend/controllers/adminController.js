@@ -409,6 +409,127 @@ export const updateAISettings = async (req, res) => {
   }
 };
 
+export const generateAIInsights = async (req, res) => {
+  try {
+    const settings = await AISetting.findOne({});
+    const apiKey = settings ? settings.apiKey : '';
+    const model = settings ? settings.model : 'gpt-4o';
+    const temperature = settings ? settings.temperature : 0.7;
+    const maxTokens = settings ? settings.maxTokens : 2048;
+
+    // Validate the API key is not empty and is not the default dummy key
+    if (!apiKey || apiKey === '' || apiKey.includes('••••') || apiKey.includes('***')) {
+      return res.status(400).json({ 
+        message: 'No valid OpenAI API Key configured. Please go to AI Settings and add your OpenAI API Key.' 
+      });
+    }
+
+    // Default AstroVed business metrics to analyze
+    const businessMetrics = {
+      period: 'Last 30 Days',
+      revenue: {
+        mtd: 'INR 32,875,900',
+        target: 'INR 42,500,000',
+        pctAchieved: '82.4%',
+        conversionRate: '3.62% (+0.48% vs last month)',
+      },
+      channels: [
+        { name: 'Organic Search', visitors: 125430, growth: '+15.4%' },
+        { name: 'Paid Ads', visitors: 85230, growth: '+22.1%' },
+        { name: 'Direct Traffic', share: '15.6%' },
+        { name: 'Email Marketing', share: '7.8%' }
+      ],
+      products: [
+        { name: 'Rudraksha Mala', revenue: 'INR 4,578,900', orders: 1254 },
+        { name: 'Gemstone Ring', revenue: 'INR 3,244,600', orders: 982 },
+        { name: 'Navagraha Puja', revenue: 'INR 2,875,300', orders: 735 }
+      ],
+      operations: {
+        paymentSuccessRate: '94.2%',
+        refundRate: '2.1% (INR 850,000)',
+        topFailureReason: 'Bank Server Latency/Downtime (48% of failed checkouts)'
+      }
+    };
+
+    const userPrompt = settings && settings.prompts ? settings.prompts : 'Analyze AstroVed dashboard anomalies and draft immediate strategic interventions.';
+
+    const systemPrompt = `You are an advanced business intelligence AI analyst specialized in the AstroVed platform.
+You analyze user behavior, traffic performance, purchase trends, and operational checkouts.
+Your job is to generate exactly 3 strategic, highly actionable insights.
+For each insight, output:
+1. id: unique string ID like AI-001, AI-002, etc.
+2. type: 'increase' (for positive spikes/achievements), 'drop' (for downward trends/losses), or 'anomaly' (for unexpected errors, spikes, or behavior).
+3. title: A concise, impactful title (e.g., "Consultation Revenue Spike in US market").
+4. summary: A clear 1-2 sentence business description of the insight.
+5. cause: Why this trend/anomaly happened based on user analytics or operational data.
+6. actions: A string array of exactly 2 precise, actionable, and concrete recommendations to leverage the success or mitigate the issue.
+
+You MUST respond with a strict, valid JSON array of objects matching this exact structure, with no wrapper, no markdown backticks, no text before or after the JSON:
+[
+  {
+    "id": "AI-001",
+    "type": "increase",
+    "title": "US Consultation Revenue Spike",
+    "summary": "Revenue from US Astrology Consultations increased by 24.8% over the selected period.",
+    "cause": "Driven by optimization of Google Ads campaign targeting high-intent US audiences for the Yearly Career Forecast report.",
+    "actions": [
+      "Increase daily ad-spend budget on Career Consultation keywords by 15%.",
+      "Deploy email campaign to prior report buyers with customized consultation upsells."
+    ]
+  }
+]`;
+
+    const requestBody = {
+      model: model || 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Analyze these metrics according to this directive: "${userPrompt}"\n\nMetrics:\n${JSON.stringify(businessMetrics, null, 2)}` }
+      ],
+      temperature: temperature || 0.7,
+      max_tokens: maxTokens || 1500
+    };
+
+    // Make the native fetch call
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({ 
+        message: errorData.error?.message || `OpenAI API returned error ${response.status}`
+      });
+    }
+
+    const data = await response.json();
+    let content = data.choices[0].message.content.trim();
+    
+    // Clean up markdown code block markers if returned by OpenAI
+    if (content.startsWith('```')) {
+      content = content.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+    }
+
+    try {
+      const insights = JSON.parse(content);
+      res.json(insights);
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response as JSON:', content);
+      res.status(500).json({ 
+        message: 'OpenAI returned an invalid JSON format. Please try again.',
+        raw: content 
+      });
+    }
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Integrations
 export const getIntegrations = async (req, res) => {
   try {
