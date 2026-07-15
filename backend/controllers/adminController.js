@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User from '../models/User.js';
 import RolePermission from '../models/RolePermission.js';
 import KPI from '../models/KPI.js';
@@ -400,9 +403,47 @@ export const getAISettings = async (req, res) => {
   }
 };
 
+const updateEnvFile = (key, value) => {
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const envPath = path.resolve(__dirname, '../.env');
+    
+    if (!fs.existsSync(envPath)) return;
+    
+    let envContent = fs.readFileSync(envPath, 'utf8');
+    const lines = envContent.split(/\r?\n/);
+    let keyExists = false;
+    
+    const newLines = lines.map(line => {
+      if (line.trim().startsWith(`${key}=`)) {
+        keyExists = true;
+        return `${key}=${value}`;
+      }
+      return line;
+    });
+    
+    if (!keyExists) {
+      newLines.push(`${key}=${value}`);
+    }
+    
+    fs.writeFileSync(envPath, newLines.join('\n'), 'utf8');
+    console.log(`[Env Sync] Successfully updated ${key} in .env file.`);
+  } catch (error) {
+    console.error(`[Env Sync] Error updating .env file: ${error.message}`);
+  }
+};
+
 export const updateAISettings = async (req, res) => {
   try {
     const settings = await AISetting.findOneAndUpdate({}, req.body, { new: true, upsert: true });
+    
+    // Dynamically update local .env file if key is valid and not masked
+    const { apiKey } = req.body;
+    if (apiKey && apiKey !== '' && !apiKey.includes('••••') && !apiKey.includes('***')) {
+      updateEnvFile('OPENAI_API_KEY', apiKey);
+    }
+    
     res.json(settings);
   } catch (error) {
     res.status(400).json({ message: error.message });
